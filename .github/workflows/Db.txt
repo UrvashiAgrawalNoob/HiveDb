@@ -1,0 +1,50 @@
+bh
+#!/bin/bash
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 [--missing-fill=Y]"
+    exit 1
+}
+
+# Parse command-line arguments
+MISSING_FILL="N"
+for arg in "$@"; do
+    case $arg in
+        --missing-fill=Y)
+            MISSING_FILL="Y"
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+if [ "$MISSING_FILL" == "Y" ]; then
+    echo "Checking for missing scenarios using partitions..."
+
+    hive -e "
+    USE your_database_name;
+
+    -- Query to find missing scenarios
+    WITH scenarios_from_a AS (
+        -- Fetch available partitions for scenarios in Table A
+        SELECT DISTINCT scenario
+        FROM table_a
+        WHERE scenario IS NOT NULL
+    ),
+    exercises_from_b AS (
+        -- Fetch available partitions for exercises in Table B
+        SELECT DISTINCT exercise
+        FROM table_b
+        WHERE year_month >= '202401' -- Adjust date range based on partition
+    )
+    SELECT a.scenario AS missing_scenario
+    FROM scenarios_from_a a
+    LEFT JOIN exercises_from_b b
+    ON a.scenario = b.exercise
+    WHERE b.exercise IS NULL;
+    "
+else
+    echo "Skipping missing scenario check as --missing-fill is not set to Y."
+fi
